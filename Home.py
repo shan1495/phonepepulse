@@ -25,6 +25,7 @@ mydb = sql.connect(host="127.0.0.1",
                    port = "3306"
                   )
 mycursor = mydb.cursor(buffered=True)
+geojsonurl = 'https://gist.githubusercontent.com/jbrobst/56c13bbbf9d97d187fea01ca62ea5112/raw/e388c4cae20aa53cb5090210a42ebb9b765c0a36/india_states.geojson'
 with st.sidebar:
     selected = st.selectbox("Select the menu",["Home","Top Charts","Explore Data"])
 
@@ -58,7 +59,7 @@ if selected == "Top Charts":
             df = pd.DataFrame(mycursor.fetchall(), columns=['State', 'Transactions_Count','Total_Amount'])
             fig = px.pie(df, values='Total_Amount',
                              names='State',
-                             title='Top 10',
+                             title='Top ' + str(ToppersLimit),
                              color_discrete_sequence=px.colors.sequential.Agsunset,
                              hover_data=['Transactions_Count'],
                              labels={'Transactions_Count':'Transactions_Count'})
@@ -72,7 +73,7 @@ if selected == "Top Charts":
 
             fig = px.pie(df, values='Total_Amount',
                              names='District',
-                             title='Top 10',
+                             title='Top ' + str(ToppersLimit),
                              color_discrete_sequence=px.colors.sequential.Turbo,
                              hover_data=['Transactions_Count'],
                              labels={'Transactions_Count':'Transactions_Count'})
@@ -107,7 +108,7 @@ if selected == "Top Charts":
                 mycursor.execute(f"select BRANDS, sum(TRANS_COUNT) as Total_Count, avg(PERCENT)*100 as Avg_Percentage from PHONEPE_AGGREGATED_USERS where year = {Year} and quarter = {Quarter} group by brands order by Total_Count desc limit 10")
                 df = pd.DataFrame(mycursor.fetchall(), columns=['Brand', 'Total_Users','Avg_Percentage'])
                 fig = px.bar(df,
-                             title='Top 10',
+                             title='Top ' + str(ToppersLimit),
                              x="Total_Users",
                              y="Brand",
                              orientation='h',
@@ -121,7 +122,7 @@ if selected == "Top Charts":
             df = pd.DataFrame(mycursor.fetchall(), columns=['District', 'Total_Users','App_opens'])
             df.Total_Users = df.Total_Users.astype(float)
             fig = px.scatter(df,
-                         title='Top 10',
+                         title='Top ' + str(ToppersLimit),
                          x="District",
                          y="Total_Users",
                          color='District',
@@ -135,7 +136,7 @@ if selected == "Top Charts":
             fig = px.pie(df,
                          values='Total_Users',
                          names='Districts',
-                         title='Top 10',
+                         title='Top ' + str(ToppersLimit),
                          color_discrete_sequence=px.colors.sequential.Agsunset,
                          hover_data=['Total_Users'])
             fig.update_traces(textposition='inside', textinfo='percent+label')
@@ -147,7 +148,7 @@ if selected == "Top Charts":
         #     df = pd.DataFrame(mycursor.fetchall(), columns=['State', 'Total_Users','Total_Appopens'])
         #     fig = px.pie(df, values='Total_Users',
         #                      names='State',
-        #                      title='Top 10',
+        #                      title='Top ' + ToppersLimit,
         #                      color_discrete_sequence=px.colors.sequential.Agsunset,
         #                      hover_data=['Total_Appopens'],
         #                      labels={'Total_Appopens':'Total_Appopens'})
@@ -160,7 +161,7 @@ if selected == "Explore Data":
     Type = st.sidebar.selectbox("**Type**", ("Transactions", "Users"))
     col1,col2,col3 = st.columns(3)
     
-    geojsonurl = 'https://gist.githubusercontent.com/jbrobst/56c13bbbf9d97d187fea01ca62ea5112/raw/e388c4cae20aa53cb5090210a42ebb9b765c0a36/india_states.geojson'
+    
 # EXPLORE DATA - TRANSACTIONS
     if Type == "Transactions":
         Year = st.sidebar.slider("**Year**", min_value=2018, max_value=2022)
@@ -198,7 +199,6 @@ if selected == "Explore Data":
             st.markdown("## :green[Overall State Data - Transactions Amount]")
             mycursor.execute(f"select state, sum(TRANS_COUNT) as Total_Transactions, sum(amount) as Total_amount from PHONEPE_MAP_TRANSACTIONS where year = {Year} and quarter = {Quarter} group by state order by state")
             df1 = pd.DataFrame(mycursor.fetchall(),columns= ['State', 'Total_Transactions', 'Total_amount'])
-            
             df2 = pd.read_csv(r'.\\Data\\Statenames.csv')
             df1.State = df2
             fig1 = px.area(df1,x='Total_Transactions',y='Total_amount',color='Total_amount')
@@ -206,19 +206,27 @@ if selected == "Explore Data":
             
             st.plotly_chart(fig1)
     if Type == "Users":
-
+        Year = st.slider("Year", min_value=2018, max_value=2022)
         with col1:
-            st.markdown("## Quarters ##")
-            Year = st.slider("Year", min_value=2018, max_value=2022)
+            st.markdown("## Total Transactions in Quarters ##")
+            
             mycursor.execute(f"select quarter, sum(AMOUNT) as amount, sum(TRANS_COUNT) as transactions from TOP_TRANSACTIONS where year= {Year} group by quarter")
             df1 = pd.DataFrame(mycursor.fetchall(),columns=['Quarter','amount','transactions'])
             fig = px.histogram(df1,x='Quarter',y='amount')
             st.plotly_chart(fig,use_container_width=True)
 
         with col2:
-            st.markdown("## Quarters ##")
-            Year = st.slider("Year", min_value=2018, max_value=2022)
-            mycursor.execute(f"select quarter, sum(AMOUNT) as amount, sum(TRANS_COUNT) as transactions from TOP_TRANSACTIONS where year= {Year} group by quarter")
-            df1 = pd.DataFrame(mycursor.fetchall(),columns=['Quarter','amount','transactions'])
-            fig = px.histogram(df1,x='Quarter',y='amount')
+            st.markdown("## Users Registration ##")
+            
+            mycursor.execute(f"select state as state, QUARTER as quarter, sum(REGISTERED_USERS) as users  from top_users where year = {Year} group by state, quarter, year;")
+            df1 = pd.DataFrame(mycursor.fetchall(),columns=['state','quarter','users'])
+            fig = px.histogram(df1,x='users',y='quarter')
+            df2 = pd.read_csv(r'.\\Data\\Statenames.csv')
+            df1.state = df2
+            fig = px.choropleth(df1,geojson=geojsonurl,
+                      featureidkey='properties.ST_NM',
+                      locations='state',
+                      color='users',
+                      color_continuous_scale= 'sunset')
+            fig.update_geos(fitbounds="locations", visible=False) 
             st.plotly_chart(fig,use_container_width=True)
