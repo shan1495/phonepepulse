@@ -141,25 +141,12 @@ if selected == "Top Charts":
                          hover_data=['Total_Users'])
             fig.update_traces(textposition='inside', textinfo='percent+label')
             st.plotly_chart(fig,use_container_width=True)
-            
-        # with col4:
-        #     st.markdown("### :violet[State]")
-        #     mycursor.execute(f"select state, sum(Registereduser) as Total_Users, sum(AppOpens) as Total_Appopens from map_user where year = {Year} and quarter = {Quarter} group by state order by Total_Users desc limit 10")
-        #     df = pd.DataFrame(mycursor.fetchall(), columns=['State', 'Total_Users','Total_Appopens'])
-        #     fig = px.pie(df, values='Total_Users',
-        #                      names='State',
-        #                      title='Top ' + ToppersLimit,
-        #                      color_discrete_sequence=px.colors.sequential.Agsunset,
-        #                      hover_data=['Total_Appopens'],
-        #                      labels={'Total_Appopens':'Total_Appopens'})
-
-        #     fig.update_traces(textposition='inside', textinfo='percent+label')
-        #     st.plotly_chart(fig,use_container_width=True)
-#st.map(df)
+         
+        
 if selected == "Explore Data":
     
     Type = st.sidebar.selectbox("**Type**", ("Transactions", "Users"))
-    col1,col2,col3 = st.columns(3)
+    col1,col2,col3,col4 = st.columns(4,gap="large")
     
     
 # EXPLORE DATA - TRANSACTIONS
@@ -173,7 +160,6 @@ if selected == "Explore Data":
             df1 = pd.DataFrame(mycursor.fetchall(),columns= ['State', 'Total_Transactions', 'Total_amount'])
             df2 = pd.read_csv(r'.\\Data\\Statenames.csv')
             df1.State = df2
-
             fig = px.choropleth(df1,geojson=geojsonurl,
                       featureidkey='properties.ST_NM',
                       locations='State',
@@ -181,7 +167,6 @@ if selected == "Explore Data":
                       color_continuous_scale='sunset',)
 
             fig.update_geos(fitbounds="locations", visible=False) 
-            
             st.plotly_chart(fig)
             
         with col2:
@@ -196,7 +181,7 @@ if selected == "Explore Data":
             
             st.plotly_chart(fig1)
         with col3:
-            st.markdown("## :green[Overall State Data - Transactions Amount]")
+            st.markdown("## :blue[Overall State Data - Transactions Amount]")
             mycursor.execute(f"select state, sum(TRANS_COUNT) as Total_Transactions, sum(amount) as Total_amount from PHONEPE_MAP_TRANSACTIONS where year = {Year} and quarter = {Quarter} group by state order by state")
             df1 = pd.DataFrame(mycursor.fetchall(),columns= ['State', 'Total_Transactions', 'Total_amount'])
             df2 = pd.read_csv(r'.\\Data\\Statenames.csv')
@@ -205,8 +190,23 @@ if selected == "Explore Data":
             #fig1.update_geos(fitbounds="locations", visible=False)
             
             st.plotly_chart(fig1)
+        with col4:
+            st.markdown("## :green[Insights on a State - Transactions]")
+            states_list = ["Andaman-&-Nicobar","Andhra-Pradesh","Arunachal-Pradesh","Assam","Bihar","Chandigarh","Chhattisgarh","adra-and-Nagar-Haveli-and-Daman-and-Diu","Delhi","Goa","Gujarat","Haryana","Himachal-Pradesh","Jammu-&-Kashmir","Jharkhand","Karnataka","Kerala","Ladakh","Lakshadweep","Madhya-Pradesh","Maharashtra","Manipur","Meghalaya","Mizoram","Nagaland","Odisha","Puducherry","Punjab","Rajasthan","Sikkim","Tamil-Nadu","Telangana","Tripura","Uttar-Pradesh","Uttarakhand","West-Bengal"]
+            df2 = pd.read_csv(r'.\\Data\\Statenames.csv')
+            selected_state = st.selectbox(options=states_list,label="Select the state")
+            selected_state = selected_state.lower()
+            mycursor.execute(f"select sum(amount) as amount, quarter,year from PHONEPE_AGGREGATED_TRANS where state = '{selected_state}' and year = {Year} group by quarter, year")
+            df1 = pd.DataFrame(mycursor.fetchall(),columns= ['amount', 'quarter', 'year'])
+                        
+            fig1 = px.area(df1,x='quarter',y='amount',color='quarter')
+            st.plotly_chart(fig1)
+
+
+    Year = st.slider("Year", min_value=2018, max_value=2022)
     if Type == "Users":
-        Year = st.slider("Year", min_value=2018, max_value=2022)
+        col1,col2,col3 = st.columns(3,gap="large")
+        
         with col1:
             st.markdown("## Total Transactions in Quarters ##")
             
@@ -218,15 +218,26 @@ if selected == "Explore Data":
         with col2:
             st.markdown("## Users Registration ##")
             
-            mycursor.execute(f"select state as state, QUARTER as quarter, sum(REGISTERED_USERS) as users  from top_users where year = {Year} group by state, quarter, year;")
-            df1 = pd.DataFrame(mycursor.fetchall(),columns=['state','quarter','users'])
+            mycursor.execute(f"select state as state, QUARTER as quarter,  sum(REGISTERED_USERS) as users,district as district  from top_users where year = {Year} group by state, quarter, year;")
+            df1 = pd.DataFrame(mycursor.fetchall(),columns=['state','quarter','users','district'])
             fig = px.histogram(df1,x='users',y='quarter')
             df2 = pd.read_csv(r'.\\Data\\Statenames.csv')
             df1.state = df2
             fig = px.choropleth(df1,geojson=geojsonurl,
                       featureidkey='properties.ST_NM',
                       locations='state',
-                      color='users',
+                      color='state',
                       color_continuous_scale= 'sunset')
             fig.update_geos(fitbounds="locations", visible=False) 
-            st.plotly_chart(fig,use_container_width=True)
+            st.plotly_chart(fig)
+        with col3:
+            st.markdown("## Users Registration ##")
+            
+            mycursor.execute(f"select state as state, QUARTER as quarter,  sum(REGISTERED_USERS) as users,district as district  from top_users where year = {Year} group by state, quarter, year;")
+            df1 = pd.DataFrame(mycursor.fetchall(),columns=['state','quarter','users','district'])
+            fig = px.histogram(df1,x='users',y='quarter')
+            df2 = pd.read_csv(r'.\\Data\\Statenames.csv')
+            df1.state = df2
+            fig = px.scatter_geo(df1,size="gdpPercap",color="state")
+            fig.update_geos(fitbounds="locations", visible=False) 
+            st.plotly_chart(fig)
